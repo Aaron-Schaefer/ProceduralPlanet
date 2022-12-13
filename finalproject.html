@@ -1,0 +1,228 @@
+<html>
+<head>
+    <title>CSCI-510: Final Project</title>
+    
+    <!-- vertex Shader -->
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        #version 300 es
+        in vec4 aVertexPosition;
+        in vec3 bary;
+        in float texture;
+        uniform vec3 theta;
+        uniform vec4 translation;
+        uniform bool moon;
+        uniform bool stars;
+        uniform float scale;
+        
+        out vec3 vbc;
+
+        out float f_texture;
+
+        void main()
+        {
+            // Compute the sines and cosines of each rotation
+            // about each axis
+            vec3 angles = radians( theta );
+            vec3 c = cos( angles );
+            vec3 s = sin( angles );
+
+            // rotation matrices
+            mat4 rx = mat4 ( 1.0,  0.0,  0.0,  0.0,
+                             0.0,  c.x,  s.x,  0.0,
+                             0.0, -s.x,  c.x,  0.0,
+                             0.0,  0.0,  0.0,  1.0 );
+
+            mat4 ry = mat4 ( c.y,  0.0, -s.y,  0.0,
+                             0.0,  1.0,  0.0,  0.0,
+                             s.y,  0.0,  c.y,  0.0,
+                             0.0,  0.0,  0.0,  1.0 );
+
+            mat4 rz = mat4 ( c.z,  s.z,  0.0,  0.0,
+                            -s.z,  c.z,  0.0,  0.0,
+                             0.0,  0.0,  1.0,  0.0,
+                             0.0,  0.0,  0.0,  1.0 );
+
+            mat4 zoom = mat4 (  scale,  0.0,  0.0,  0.0,
+                                0.0,  scale,  0.0,  0.0,
+                                0.0,  0.0,  scale,  0.0,
+                                0.0,  0.0,  0.0,  1.0 );
+
+            if (stars) {
+                gl_PointSize = 1.0 + 1.5 * texture;
+                gl_Position = aVertexPosition;
+            } else {
+                gl_Position = (rz * ry * rx * zoom * aVertexPosition) + translation;
+            }
+            vbc = bary;
+            f_texture = texture;
+        }
+    </script>
+
+     <!-- fragment Shader -->
+     <script id="fragment-shader" type="x-shader/x-fragment">
+         #version 300 es
+         precision mediump float;
+         
+         in vec3 vbc;
+         in vec4 v_color;
+         in float f_texture;
+         uniform bool moon;
+         uniform bool stars;
+
+         // Color that is the result of this shader
+         out vec4 fragColor;
+
+         void main(void) {
+
+            // Star Background
+            if (stars) {
+                fragColor = vec4(1.0, 1.0, 1.0, 1.0);
+            }
+            // planet
+            else if (!moon) {
+                // water
+                if(f_texture < -0.25) {
+                    fragColor = vec4(0.0, 0.0, 4.0 * f_texture + 2.5, 1.0);
+                } else if(f_texture < 0.0) {
+                    fragColor = vec4(.805 * f_texture + 0.161, 3.605 * f_texture + 0.721, -1.35 * f_texture + 0.730, 1.0);
+                } 
+                
+                else { 
+                    //land
+
+                    if (f_texture < 0.05) {
+                        // beach brown (0.550, 0.730, 0.161, 1.0);
+                        fragColor = vec4(-9.58 * f_texture + 0.55, -1.4 * f_texture + 0.73, -1.57 * f_texture + 0.161, 1.0);
+                    }
+                    else {
+                        // green (0.0726, 0.660, 0.0824, 1.0);
+                        // brown (0.52, 0.512, 0.05, 1.0);
+                        fragColor = vec4(1.27 * f_texture + 0.01 , -0.42 * f_texture + 0.68, -0.09 * f_texture + 0.09, 1.0);
+                    }
+
+                }
+            // Moon
+            } else {
+                fragColor = vec4(f_texture, f_texture, f_texture, 1.0);
+            };
+         }
+
+     </script>
+     
+     <!-- include the shape creation functions -->
+    <script type="text/javascript" src="./scene.js"></script>
+    
+    <!-- include the main tesselation functions -->
+    <script type="text/javascript" src="./main.js"></script>
+
+    <script type="text/javascript" src="./noise.js"></script>
+    
+    <!-- keyboard functions -->
+    <script type="text/javascript">
+    
+    function gotKey (event) {
+        
+        var key = event.key;
+        
+        //  incremental rotation
+        if (key == 'x')
+            angles[0] -= angleInc;
+        else if (key == 'y')
+            angles[1] -= angleInc;
+        else if (key == 'z')
+            angles[2] -= angleInc;
+        else if (key == 'X')
+            angles[0] += angleInc;
+        else if (key == 'Y')
+            angles[1] += angleInc;
+        else if (key == 'Z')
+            angles[2] += angleInc;
+
+        // reset
+        else if (key == 'r' || key=='R') {
+            angles[0] = anglesReset[0];
+            angles[1] = anglesReset[1];
+            angles[2] = anglesReset[2];
+            Tx = 0;
+            Ty = 0;
+            Tz = 0;
+            scale = 1.0;
+        } 
+
+        // Translate
+        else if (key == 'ArrowLeft') {
+            Tx -= 0.01;
+        } else if (key =='ArrowRight') {
+            Tx += 0.01;
+        } else if (key == 'ArrowUp') {
+            event.preventDefault();
+            Ty += 0.01;
+        } else if (key == 'ArrowDown') {
+            event.preventDefault();
+            Ty -= 0.01;
+        } else if (key =='+') {
+            scale += 0.01;
+        } else if (key == '-') {
+            if (scale > 0) {
+                scale -= 0.01;
+            }
+        }
+        
+        // create a new shape and do a redo a draw
+        createScene(true);
+    }
+    
+    </script>
+
+  <script type="text/javascript">
+    // Call init once the webpage has loaded
+    window.onload = init;
+  </script>
+</head>
+
+<body>
+  <table>
+      <tr>
+          <td><canvas id="webgl-canvas" width="900" height="900">
+            Your browser does not support the HTML5 canvas element.
+          </canvas></td>
+          
+          <td>
+              <h3>Controls</h3>
+              
+              <table border="1">
+              <tbody>
+              <tr>
+                <td>x, y, z</td>
+                <td>Rotate the planet system on the x, y, or z axis</td>
+              </tr>
+              <tr>
+                <td>X, Y, Z</td>
+                <td>Rotate the planet system on the x, y, or z axis backwards</td>
+              </tr>
+              <tr>
+                <td>Arrow Keys</td>
+                <td>Translate planet system left/right up/down</td>
+              </tr>
+              <tr>
+                <td>r</td>
+                <td>Reset all transformations</td>
+              </tr>
+              <tr>
+                <td>+/-</td>
+                <td>Scale planet system up/down</td>
+              </tr>
+              </tbody>
+              </table>
+              <button onClick="window.location.reload();">Refresh Scene</button>
+              
+          </td>
+      </tr>
+  </table>
+
+  
+  
+
+</body>
+</html>
+
